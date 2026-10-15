@@ -1,0 +1,411 @@
+openapi: 3.0.3
+info:
+  title: Bookstore API
+  version: 0.1.0
+  description: >-
+    Legacy API documented from source inspection only. Behaviors marked as
+    "verified from code only" were inferred from the implementation and not
+    runtime-tested.
+x-legacy-issue:
+  - "README.md mentions DELETE support, but no DELETE endpoint exists in the code."
+servers:
+  - url: /api
+tags:
+  - name: Books
+    description: Book inventory endpoints.
+paths:
+  /books/health:
+    get:
+      tags: [Books]
+      summary: Health check
+      description: Returns HTTP 200 with no response body.
+      responses:
+        '200':
+          description: OK. Empty body.
+
+  /books:
+    get:
+      tags: [Books]
+      summary: List books
+      description: >-
+        Returns all books when category is omitted, empty, or unknown.
+        When category matches a category name exactly and case-sensitively,
+        only books with that numeric categoryId are returned.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: >-
+            Category NAME, not category ID. Default: null / omitted.
+            Exact case-sensitive match against the built-in category names.
+      responses:
+        '200':
+          description: Array of books.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+              examples:
+                sample:
+                  summary: Example list response
+                  value:
+                    - id: 64f1a2b3c4d5e6f7890abcde
+                      title: Clean Code
+                      author: Robert C. Martin
+                      categoryId: 6
+                      quantity: 12
+                      description: Example book from code inspection.
+                      language: en
+                      active: true
+                      inactiveDate: null
+                      publisher: Prentice Hall
+                      publisherDate: '2008-08-01T00:00:00Z'
+                    - id: 64f1a2b3c4d5e6f7890abcdf
+                      title: The Mythical Man-Month
+                      author: Frederick P. Brooks Jr.
+                      categoryId: 2
+                      quantity: 3
+                      description: null
+                      language: en
+                      active: false
+                      inactiveDate: '2024-01-10T12:00:00Z'
+                      publisher: Addison-Wesley
+                      publisherDate: '1975-01-01T00:00:00Z'
+        '500':
+          description: Unhandled Mongo/runtime exception while loading the list.
+      x-legacy-issue:
+        - "category is matched by exact, case-sensitive Category.name, not by ID."
+        - "Unknown or empty category returns all books instead of an error."
+
+    post:
+      tags: [Books]
+      summary: Create book
+      description: >-
+        Creates a book when title is non-null. Missing title returns 404.
+        The request uses field name categoryId but the controller passes it as a
+        category NAME string to the service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookRequest'
+            examples:
+              sample:
+                summary: Example create request
+                value:
+                  title: Clean Code
+                  author: Robert C. Martin
+                  categoryId: Programming
+                  quantity: 12
+                  description: Example create payload.
+                  language: en
+                  active: true
+                  inactiveDate: '2024-01-10T12:00:00Z'
+                  publisher: Prentice Hall
+                  publisherDate: '2008-08-01T00:00:00Z'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+              examples:
+                sample:
+                  summary: Example create response
+                  value:
+                    id: 64f1a2b3c4d5e6f7890abcea
+                    title: Clean Code
+                    author: Robert C. Martin
+                    categoryId: 6
+                    quantity: 12
+                    description: Example create payload.
+                    language: en
+                    active: true
+                    inactiveDate: '2024-01-10T12:00:00Z'
+                    publisher: Prentice Hall
+                    publisherDate: '2008-08-01T00:00:00Z'
+        '404':
+          description: Missing title. The controller returns 404 with an empty body.
+        '500':
+          description: >-
+            Unhandled exception. Known code-path examples include unknown category
+            name causing a NullPointerException and any Mongo/runtime error.
+      x-legacy-issue:
+        - "Missing title returns 404 instead of a validation error."
+        - "categoryId is a string category name on input, but a numeric categoryId is returned in the Book response."
+        - "Unknown category name causes a NullPointerException because validateCategory can return null."
+        - "quantity is not validated."
+        - "inactiveDate is accepted even when active=true."
+
+  /books/single:
+    get:
+      tags: [Books]
+      summary: Get one book by name or id
+      description: >-
+        name is matched exactly against title. author is not implemented and
+        throws RuntimeException. id lookup compares String references with ==,
+        so it is effectively broken. If both name and id are sent, the id branch
+        runs after name and overwrites the result.
+      parameters:
+        - name: id
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: >-
+            Book id. Default: null / omitted. Compared with == in code.
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: >-
+            Exact title match. Default: null / omitted.
+        - name: author
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: >-
+            Any non-null value triggers RuntimeException because author filtering
+            is not implemented.
+      responses:
+        '200':
+          description: >-
+            Matching book. If no book matches, the controller still returns 200
+            with a null entity; Jersey response body is empty (verified from code
+            only).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+              examples:
+                sample:
+                  summary: Example successful lookup
+                  value:
+                    id: 64f1a2b3c4d5e6f7890abcde
+                    title: Clean Code
+                    author: Robert C. Martin
+                    categoryId: 6
+                    quantity: 12
+                    description: Example book from code inspection.
+                    language: en
+                    active: true
+                    inactiveDate: null
+                    publisher: Prentice Hall
+                    publisherDate: '2008-08-01T00:00:00Z'
+        '500':
+          description: >-
+            Unhandled exception. Sending author triggers RuntimeException; other
+            unhandled runtime/database failures also surface here.
+      x-legacy-issue:
+        - "author query parameter throws RuntimeException because the endpoint is not implemented."
+        - "name matches title exactly."
+        - "id lookup uses == on Strings, so it is a broken lookup."
+        - "If both name and id are present, the id branch runs after name and overwrites the result."
+        - "Verified from code only: when the final result is null, Jersey emits an empty body while the controller still returns 200."
+
+    put:
+      tags: [Books]
+      summary: Update book quantity and active flag
+      description: >-
+        The id travels in the JSON body. The controller only updates quantity and
+        active; all other fields in the returned Book remain unset/null or at
+        primitive defaults. Missing id returns 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+            examples:
+              deactivate-by-omission:
+                summary: Omitting active deactivates the book
+                value:
+                  id: 64f1a2b3c4d5e6f7890abcde
+                  quantity: 7
+              reactivate:
+                summary: Explicitly re-enable a book
+                value:
+                  id: 64f1a2b3c4d5e6f7890abcde
+                  quantity: 7
+                  active: true
+      responses:
+        '201':
+          description: Updated book returned as a Book object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+              examples:
+                sample:
+                  summary: Example update response
+                  value:
+                    id: 64f1a2b3c4d5e6f7890abcde
+                    title: null
+                    author: null
+                    categoryId: 0
+                    quantity: 7
+                    description: null
+                    language: null
+                    active: false
+                    inactiveDate: '2024-01-10T12:00:00Z'
+                    publisher: null
+                    publisherDate: null
+        '404':
+          description: Missing id in the request body. The controller returns 404 with an empty body.
+        '500':
+          description: >-
+            Unhandled exception. Known code-path examples include an invalid
+            ObjectId in the provided id and any Mongo/runtime error.
+      x-legacy-issue:
+        - "The id is carried in the JSON body rather than a path parameter."
+        - "Only quantity and active are updated; the other Book fields in the response remain null or primitive defaults."
+        - "If active is omitted, the boolean default false deactivates the book and sets inactiveDate to now."
+        - "Reactivating with active=true clears inactiveDate because the controller passes null for inactiveDate."
+        - "A non-existent id still returns 201 and leaves the stored document unchanged."
+        - "An invalid ObjectId causes a 500 before a response is built."
+        - "Verified from code only: the JSON-B property name for the id field is id (from getId/setId), even though the backing field is declared as Id in source."
+
+components:
+  schemas:
+    Book:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: MongoDB ObjectId string.
+          example: 64f1a2b3c4d5e6f7890abcde
+        title:
+          type: string
+          nullable: true
+          description: Book title. May be null in partially populated update responses.
+        author:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int32
+          description: Numeric category id.
+        quantity:
+          type: integer
+          format: int32
+        description:
+          type: string
+          nullable: true
+        language:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+          description: Whether the book is active.
+        inactiveDate:
+          type: string
+          format: date-time
+          nullable: true
+        publisher:
+          type: string
+          nullable: true
+        publisherDate:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - categoryId
+        - quantity
+        - active
+
+    CreateBookRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          nullable: true
+          description: >-
+            Required by controller logic: null triggers 404. Default: null.
+        author:
+          type: string
+          nullable: true
+          description: Default: null.
+        categoryId:
+          type: string
+          nullable: true
+          description: >-
+            Category NAME, despite the field name. Default: null.
+        quantity:
+          type: integer
+          format: int32
+          default: 0
+          description: Default: 0.
+        description:
+          type: string
+          nullable: true
+          description: Default: null.
+        language:
+          type: string
+          nullable: true
+          description: Default: null.
+        active:
+          type: boolean
+          default: true
+          description: Default: true.
+        inactiveDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: Default: null.
+        publisher:
+          type: string
+          nullable: true
+          description: Default: null.
+        publisherDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: Default: null.
+
+    UpdateBookRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          nullable: true
+          description: >-
+            JSON-B bean property name is id. Missing/null id triggers 404.
+        quantity:
+          type: integer
+          format: int32
+          default: 0
+          description: Default: 0.
+        active:
+          type: boolean
+          default: false
+          description: Default: false.
+      x-legacy-issue:
+        - "The backing field is named Id in source, but the JSON-B property is id via getId/setId."
+
+    Category:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+      required: [id, name]
+      description: Built-in categories are fixed in code: Fiction, Non-Fiction, Science, Biography, Children, Programming.
