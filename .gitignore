@@ -3,6 +3,10 @@ graphify-out/
 .rtk/
 .DS_Store
 
-test de commit
-
-test commint destevezd
+# Visual Studio / .NET
+.vs/
+bin/
+obj/
+TestResults/
+coverage/
+*.user
