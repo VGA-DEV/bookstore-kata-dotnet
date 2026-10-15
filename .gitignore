@@ -6,3 +6,10 @@ graphify-out/
 test de commit
 
 test
+# Visual Studio / .NET
+.vs/
+bin/
+obj/
+TestResults/
+coverage/
+*.user
