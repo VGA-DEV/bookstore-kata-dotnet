@@ -51,3 +51,46 @@ VS Code `.vscode/mcp.json` uses the same server entry under `"servers"`.
 - **Spec Kit** alone as the delivery spine if you use one  
 
 No phase profiles. No parallel Superpowers + Spec Kit.
+
+## Bookstore API (.NET 10 scaffold)
+
+### Project Title & Description
+
+Bookstore API is being scaffolded as a .NET 10 Minimal API for bookstore operations. The new solution lives alongside the existing Java code and currently exposes only a health endpoint under `/api/v1/books`.
+
+### Prerequisites
+
+- .NET 10 SDK
+- Docker for integration tests that use MongoDB Testcontainers
+
+### Getting Started
+
+```powershell
+dotnet restore Bookstore.sln
+dotnet build Bookstore.sln
+dotnet run --project src/Bookstore.Api
+```
+
+### API Documentation Link
+
+- OpenAPI JSON: `http://localhost:<port>/openapi/v1.json`
+- Scalar UI: available in Development at the default Scalar route
+
+### Testing Setup
+
+```powershell
+dotnet test Bookstore.sln
+dotnet test tests/Bookstore.Api.UnitTests/Bookstore.Api.UnitTests.csproj /p:CollectCoverage=true /p:Threshold=70 /p:ThresholdType=line /p:ThresholdStat=total
+```
+
+The second command fails the build if total line coverage drops below 70%.
+
+### Architecture / Design Notes
+
+- Central package management is used at the repository root.
+- The .NET API uses Minimal APIs only; controllers are intentionally absent.
+- MongoDB configuration is read from `MONGODB_URI` or configuration and is never hardcoded.
+
+### Maintainers
+
+See the repository owners / team channel for the Java service and the new Bookstore API initiative.
